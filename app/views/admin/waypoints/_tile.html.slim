@@ -1,0 +1,18 @@
+/ One headline figure.
+/
+/ locals:
+/   label - what it measures
+/   value - the already-formatted figure
+/   hint  - one line on why it matters
+/   tone  - :neutral (default), :good, :warn, :bad, :muted
+/
+- tone = local_assigns.fetch(:tone, :neutral)
+- tones = { neutral: 'text-white', good: 'text-green-400', warn: 'text-orange-400', bad: 'text-red-400', muted: 'text-gray-500' }
+
+.card.p-4.column.gap-y-1
+  p.text-xs.text-gray-400.uppercase.tracking-wide= label
+
+  h2.text-2xl.font-medium.leading-none class=tones.fetch(tone, tones[:neutral])
+    = value
+
+  p.text-xs.text-gray-500= hint

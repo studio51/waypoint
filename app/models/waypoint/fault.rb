@@ -90,9 +90,15 @@ class Waypoint
 
     # The fault as a short human phrase, for the dashboard.
     #
+    # Deliberately not called `label`: that is a *column* on this table, holding
+    # the name of the item that failed ("Warthog Jump"). Defining a `label` method
+    # shadowed it, so the one piece of information identifying which thing broke
+    # was unreadable — it could still be written, which is why nothing caught it
+    # until the dashboard tried to display it.
+    #
     # @return [String]
     #
-    def label = I18n.t("waypoints.faults.#{ fault }")
+    def description = I18n.t("waypoints.faults.#{ fault }")
 
     # What the member (or we) would have to do about it.
     #
