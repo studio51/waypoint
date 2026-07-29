@@ -120,7 +120,30 @@ class Waypoint
     # @return [Symbol]
     #
     def for_record_error(status, message_code)
-      BY_MESSAGE_CODE[message_code&.to_sym] || BY_STATUS[status.to_i] || :our_bug
+      BY_MESSAGE_CODE[message_code&.to_sym] || for_status(status) || :our_bug
+    end
+
+    # The fault an HTTP-ish status implies.
+    #
+    # Shared by {#classify} and {#for_record_error} — they had their own copies of
+    # this, and only one of them knew that any 5xx is the store being broken. So a
+    # 503 reported through `record_error` (which is how the network services report
+    # *everything*) was classified `our_bug` and the dashboard blamed us for the
+    # store being down. Exactly the mis-attribution the taxonomy exists to prevent.
+    #
+    # @param status [Integer, String, nil]
+    #
+    # @return [Symbol, nil] the fault, or nil when the status says nothing useful.
+    #
+    def for_status(status)
+      code = status.to_i
+
+      # Any 5xx is the store being broken, whatever the specific code. Listing
+      # them individually would just be a list of ways to say "not our fault".
+      #
+      return :network_unavailable if code >= 500
+
+      BY_STATUS[code]
     end
 
   private
@@ -147,15 +170,6 @@ class Waypoint
       nil
     end
 
-    def by_status(error)
-      status = error.try(:code).to_i
-
-      # Any 5xx is the store being broken, whatever the specific code. Listing
-      # them individually would just be a list of ways to say "not our fault".
-      #
-      return :network_unavailable if status >= 500
-
-      BY_STATUS[status]
-    end
+    def by_status(error) = for_status(error.try(:code))
   end
 end

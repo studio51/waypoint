@@ -81,6 +81,28 @@ class Waypoint::ClassifierTest < ActiveSupport::TestCase
     end
   end
 
+  # `record_error` is how every network service reports a failure, and it had its
+  # own copy of the status mapping that didn't know about 5xx — so a store being
+  # down was classified `our_bug` and the dashboard blamed us for it. Both routes
+  # share one mapping now; these pin that they agree.
+  #
+  test "a 5xx reported through record_error is the store, not us" do
+    [ 500, 502, 503, 504 ].each do |status|
+      fault = Classifier.for_record_error(status, nil)
+
+      assert_equal :network_unavailable, fault, status.to_s
+      assert_equal :network, Waypoint::Fault.new(fault:).party, status.to_s
+    end
+  end
+
+  test "both classification routes agree on every mapped status" do
+    (Classifier::BY_STATUS.keys + [ 500, 503 ]).each do |status|
+      assert_equal Classifier.classify(Network::Error.new(status, "x")),
+        Classifier.for_record_error(status, nil),
+        "status #{ status } classifies differently depending on how it was reported"
+    end
+  end
+
   test "429 is rate limiting, and worth retrying" do
     fault = Classifier.classify(Network::Error.new(429, "slow down"))
 
