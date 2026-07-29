@@ -128,12 +128,24 @@ class Waypoint::ClassifierTest < ActiveSupport::TestCase
     assert_equal grouped.uniq, grouped
   end
 
-  test "every fault has copy for its label and its remedy" do
+  test "every fault has copy for its description and its remedy" do
     Waypoint::Fault::FAULTS.each_key do |fault|
       record = Waypoint::Fault.new(fault:)
 
-      assert_not_empty record.label,  "#{ fault } has no label"
-      assert_not_empty record.remedy, "#{ fault } has no remedy"
+      assert_not_empty record.description, "#{ fault } has no description"
+      assert_not_empty record.remedy,      "#{ fault } has no remedy"
     end
+  end
+
+  # `label` is a column — the name of the item that failed ("Warthog Jump") — and
+  # was shadowed by a method of the same name returning the fault's copy. That made
+  # the one field identifying the broken thing unreadable, while still being
+  # writable, which is why it went unnoticed until the dashboard tried to show it.
+  #
+  test "label still holds the item that failed" do
+    record = Waypoint::Fault.new(fault: :our_bug, label: "Warthog Jump")
+
+    assert_equal "Warthog Jump", record.label
+    assert_equal I18n.t("waypoints.faults.our_bug"), record.description
   end
 end

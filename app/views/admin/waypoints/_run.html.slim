@@ -1,0 +1,37 @@
+/ One sync run, as a line you can read at a glance.
+/
+/ The Sentinel-style narrative is the point: "Achievements: found 900, 1797
+/ tasks, 1794 done, 3 failed" says more than a status badge ever could.
+/
+= link_to(admin_waypoint_path(run, audit_filters), class: 'card p-3 block hover:ring-1 hover:ring-gray-600') do
+
+  .row.items-center.gap-x-3.flex-wrap
+
+    .cell-auto
+      span class="inline-block w-2 h-2 rounded-full bg-#{ waypoint_status_color(run.status) }-500"
+
+    .cell-auto.w-24
+      p.text-xs.font-medium= run.network.present? ? network_label(run.network) : t('.platform')
+
+    .cell
+      p.text-sm= run.narrative
+
+      - if run.subject
+        p.text-xs.text-gray-500
+          = "#{ run.subject_type.demodulize } · #{ run.subject.try(:username) || run.subject.try(:name) || run.subject_id }"
+
+    .cell-auto
+      p.text-xs class="text-#{ waypoint_status_color(run.status) }-400"
+        = t("waypoints.statuses.#{ run.status }")
+
+    - if run.failed.positive?
+      .cell-auto
+        p.text-xs.text-red-400
+          = t('.faults', count: run.failed)
+
+    .cell-auto.w-20.text-right
+      p.text-xs.text-gray-500
+        = run.duration_ms ? distance_of_time_in_words(0, run.duration_ms / 1000.0) : t('.running')
+
+    .cell-auto.w-28.text-right
+      p.text-xs.text-gray-500= l(run.started_at, format: :short)
