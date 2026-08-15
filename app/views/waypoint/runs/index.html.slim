@@ -1,0 +1,135 @@
+/ The sync audit. What ran, what landed, and whose fault the rest is.
+/
+/ Everything on this page is an aggregate over a window (Waypoint::Audit) — the
+/ useful question is whether syncing is healthy *now*, and an all-time figure
+/ buries a live problem under months of history.
+/
+.column.gap-y-8
+
+  = render('waypoint/shared/heading', type: :main, title: t('.title'), description: t('.description_html').html_safe)
+
+  / --- Window and filters ---
+  /
+  = form_with(url: runs_path, method: :get, class: 'card p-3') do |form|
+    .row.items-center.flex-wrap.gap-x-3.gap-y-2
+
+      = form.select(:window,
+        options_for_select(Waypoint::Audit::WINDOWS.keys.map { |key| [ t(".windows.#{ key }"), key ] }, @audit.window),
+        {}, class: 'form-control bg-transparent ring-1 ring-gray-600 rounded px-2 py-1 text-sm', onchange: 'this.form.requestSubmit()')
+
+      = form.select(:network,
+        options_for_select([ [ t('.all_networks'), '' ] ] + @audit.networks.map { |key| [ network_label(key), key ] }, @audit.network),
+        {}, class: 'form-control bg-transparent ring-1 ring-gray-600 rounded px-2 py-1 text-sm', onchange: 'this.form.requestSubmit()')
+
+      = form.select(:operation,
+        options_for_select([ [ t('.all_operations'), '' ] ] + @audit.operations.map { |key| [ key.humanize, key ] }, @audit.operation),
+        {}, class: 'form-control bg-transparent ring-1 ring-gray-600 rounded px-2 py-1 text-sm', onchange: 'this.form.requestSubmit()')
+
+      = form.select(:status,
+        options_for_select([ [ t('.all_statuses'), '' ] ] + Waypoint::Run.statuses.keys.map { |key| [ t("waypoint.statuses.#{ key }"), key ] }, @audit.status),
+        {}, class: 'form-control bg-transparent ring-1 ring-gray-600 rounded px-2 py-1 text-sm', onchange: 'this.form.requestSubmit()')
+
+      .cell
+
+      p.text-xs.text-gray-500
+        = t('.since', time: l(@audit.since, format: :short))
+
+  / --- Headline ---
+  /
+  .grid.grid-cols-2.gap-3 class='lg:grid-cols-4'
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.runs'),
+      value: number_with_delimiter(@audit.total_runs),
+      hint: t('.stats.runs_hint'))
+
+    - completeness = @audit.completeness
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.completeness'),
+      value: (completeness ? number_to_percentage(completeness * 100, precision: 1) : t('.stats.no_data')),
+      hint: t('.stats.completeness_hint'),
+      tone: (completeness.nil? ? :muted : (completeness >= 0.99 ? :good : (completeness >= 0.9 ? :warn : :bad))))
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.troubled'),
+      value: number_with_delimiter(@audit.troubled_runs),
+      hint: t('.stats.troubled_hint'),
+      tone: (@audit.troubled_runs.zero? ? :good : :warn))
+
+    / The case that had no representation at all before: work we accepted and
+    / then never heard back about.
+    /
+    = render('waypoint/runs/tile',
+      label: t('.stats.incomplete'),
+      value: number_with_delimiter(@audit.incomplete_runs),
+      hint: t('.stats.incomplete_hint'),
+      tone: (@audit.incomplete_runs.zero? ? :good : :bad))
+
+  .grid.grid-cols-1.gap-6 class='lg:grid-cols-3'
+
+    / --- Whose fault ---
+    /
+    / The question the taxonomy exists to answer, so it leads.
+    /
+    .lg:col-span-2.column.gap-y-4
+
+      = render('waypoint/shared/heading', type: :section, title: t('.faults.title'), counter: @audit.total_faults)
+
+      - if @audit.total_faults.zero?
+        .card.p-6.text-center
+          p.text-sm.text-gray-400= t('.faults.none')
+
+      - else
+        .column.gap-y-3
+
+          - @audit.faults_by_party.each do |party, count|
+            - next if count.zero?
+
+            .card.p-4.column.gap-y-3
+              .row.items-center.gap-x-3
+                .cell-auto
+                  span class="inline-block w-2 h-2 rounded-full bg-#{ waypoint_party_color(party) }-500"
+
+                .cell
+                  h3.text-sm.font-medium= t("waypoint.parties.#{ party }")
+                  p.text-xs.text-gray-500= t("waypoint.party_descriptions.#{ party }")
+
+                .cell-auto
+                  p.text-lg.font-medium= number_with_delimiter(count)
+
+              .column.gap-y-1
+                - Waypoint::Fault::PARTIES[party].each do |kind|
+                  - kind_count = @audit.faults_by_kind[kind.to_s].to_i
+                  - next if kind_count.zero?
+
+                  .row.items-center.gap-x-2
+                    .cell-full
+                      .row.relative
+                        .w-full.h-full.rounded.bg-neutral-700.absolute.-z-10
+                        .cell-auto.rounded.h-4 class="bg-#{ waypoint_party_color(party) }-500/40" style="width: #{ (kind_count.to_f * 100 / @audit.total_faults).round(2) }%;"
+
+                    .cell-auto.w-64
+                      p.text-xs.text-gray-300= t("waypoint.faults.#{ kind }")
+
+                    .cell-auto.w-16.text-right
+                      p.text-xs.font-medium= number_with_delimiter(kind_count)
+
+    / --- Missing images ---
+    /
+    / Same failure modes, same vocabulary, so it belongs on the same page rather
+    / than a screen of its own.
+    /
+    .column.gap-y-4
+
+    = render('waypoint/shared/heading', type: :section, title: t('.runs.title'), counter: @total)
+
+    - if @runs.empty?
+      .card.p-6.text-center
+        p.text-sm.text-gray-400= t('.runs.none')
+
+    - else
+      .column.gap-y-1
+        = render(partial: 'waypoint/runs/run', collection: @runs, as: :run)
+
+      = render('waypoint/shared/pagination', page: @page, pages: @pages, filters: audit_filters)

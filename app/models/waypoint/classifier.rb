@@ -1,64 +1,35 @@
 # frozen_string_literal: true
 
-class Waypoint
+module Waypoint
 
   # Turns a failure into one of {Waypoint::Fault::FAULTS}.
   #
-  # This is the piece that makes the dashboard worth looking at: the same
-  # `Network::Error` can mean "the member needs to reconnect PlayStation", "PSN is
-  # down", or "we forgot to create a Title" — three different jobs of work that a
-  # log line cannot tell apart.
+  # This is the piece that makes the dashboard worth looking at: one upstream
+  # error class can mean "the member needs to reconnect their account", "the
+  # provider is down", or "we never created the record it wanted" — three
+  # completely different jobs of work that a log line cannot tell apart.
   #
   # Classification is deliberately anchored on vocabulary that already exists
   # rather than invented alongside it, in this order of confidence:
   #
-  #   1. The `message_code` a service passed to `record_error` — the strongest
-  #      signal, because the service knew exactly what happened. Every entry in
-  #      {ApplicationService::ERROR_MESSAGES} is mapped below.
+  #   1. The application's own `message_code` — the strongest signal, because the
+  #      service that raised it knew exactly what happened. Map yours with
+  #      {Waypoint::Configuration#message_codes}; it is the one table that cannot
+  #      ship with the gem.
   #   2. The exception class — a timeout is a timeout regardless of who raised it.
-  #   3. The HTTP status carried on a {Network::Error}.
+  #   3. The HTTP status, for an error that carries one.
   #
   # Anything unrecognised is `our_bug`. That default is on purpose: an unclassified
-  # failure is a gap in *our* understanding, and calling it the network's problem
+  # failure is a gap in *our* understanding, and calling it the provider's problem
   # would quietly hide it.
   #
   module Classifier
     extend self
 
-    # `message_code` → fault. Keys mirror {ApplicationService::ERROR_MESSAGES}
-    # exactly; a new code there should gain an entry here.
-    #
-    BY_MESSAGE_CODE = {
-      authenticator_expired_or_invalid: :credentials_expired,
-      invalid_session_or_missing_data:  :credentials_expired,
-
-      access_denied:                                :privacy_blocked,
-      entitlements_not_permitted_by_access_control: :privacy_blocked,
-      achievements_not_permitted_by_access_control: :privacy_blocked,
-      friends_not_permitted_by_access_control:      :privacy_blocked,
-      games_not_permitted_by_access_control:        :privacy_blocked,
-      presence_not_permitted_by_access_control:     :privacy_blocked,
-      profile_not_permitted_by_access_control:      :privacy_blocked,
-      titles_not_permitted_by_access_control:       :privacy_blocked,
-      collection_not_permitted_by_access_control:   :privacy_blocked,
-      session_not_permitted_by_access_control:      :privacy_blocked,
-      activity_not_permitted_by_access_control:     :privacy_blocked,
-      trophy_not_permitted_by_access_control:       :privacy_blocked,
-
-      internal_missing_data: :our_data_missing,
-      too_many_titles:       :our_data_missing,
-
-      # Not the member's privacy setting: every candidate bot was denied, which
-      # is a gap in our bot pool's access. Latching this as "private" is the
-      # mistake the Xbox client explicitly avoids.
-      #
-      bot_lacks_permissions: :our_permissions,
-    }.freeze
-
     # Exception class name → fault. Matched on the name so a class that isn't
     # loaded (an optional HTTP stack) doesn't have to be referenced here.
     #
-    BY_EXCEPTION = {
+    EXCEPTIONS = {
       "Timeout::Error"           => :network_unavailable,
       "Net::OpenTimeout"         => :network_unavailable,
       "Net::ReadTimeout"         => :network_unavailable,
@@ -75,7 +46,7 @@ class Waypoint
 
     # HTTP status → fault, for a {Network::Error} with nothing better to go on.
     #
-    BY_STATUS = {
+    STATUSES = {
       400 => :network_rejected,
       401 => :our_credentials_rejected,
       403 => :privacy_blocked,
@@ -86,11 +57,6 @@ class Waypoint
       422 => :network_rejected,
       429 => :network_rate_limited,
     }.freeze
-
-    # Faults worth trying again. The member's and our own are not — retrying an
-    # expired token or a bug just burns worker time.
-    #
-    RETRYABLE = %i[network_unavailable network_rate_limited network_empty].freeze
 
     # The fault a failure represents.
     #
@@ -110,17 +76,43 @@ class Waypoint
     #
     # @return [Boolean] whether it is worth retrying.
     #
-    def retryable?(fault) = RETRYABLE.include?(fault.to_sym)
+    def retryable?(fault) = Waypoint.config.retryable_faults.map(&:to_sym).include?(fault.to_sym)
+
+    # The application's failure vocabulary. Empty unless the host configured one.
+    #
+    # @return [Hash{Symbol => Symbol}]
+    #
+    def message_codes
+      Waypoint.config.message_codes.symbolize_keys
+    end
+
+    # {EXCEPTIONS} with the host's additions layered over it, so an application
+    # can classify an exception the gem has never heard of — or reclassify one it
+    # disagrees with.
+    #
+    # @return [Hash{String => Symbol}]
+    #
+    def exceptions
+      EXCEPTIONS.merge(Waypoint.config.exceptions.transform_keys(&:to_s))
+    end
+
+    # {STATUSES} with the host's additions layered over it.
+    #
+    # @return [Hash{Integer => Symbol}]
+    #
+    def statuses
+      STATUSES.merge(Waypoint.config.statuses.transform_keys(&:to_i))
+    end
 
     # The fault for a `record_error` call, which knows more than an exception does.
     #
     # @param status [Integer, nil] the HTTP-ish status.
-    # @param message_code [Symbol, nil] the ERROR_MESSAGES key.
+    # @param message_code [Symbol, nil] the application's own code for the failure.
     #
     # @return [Symbol]
     #
     def for_record_error(status, message_code)
-      BY_MESSAGE_CODE[message_code&.to_sym] || for_status(status) || :our_bug
+      message_codes[message_code&.to_sym] || for_status(status) || :our_bug
     end
 
     # The fault an HTTP-ish status implies.
@@ -143,7 +135,7 @@ class Waypoint
       #
       return :network_unavailable if code >= 500
 
-      BY_STATUS[code]
+      statuses[code]
     end
 
   private
@@ -151,7 +143,7 @@ class Waypoint
     def by_message_code(error)
       code = error.is_a?(Symbol) ? error : error.try(:message_code)
 
-      BY_MESSAGE_CODE[code&.to_sym]
+      message_codes[code&.to_sym]
     end
 
     def by_exception(error)
@@ -162,7 +154,7 @@ class Waypoint
       error.class.ancestors.each do |ancestor|
         next unless ancestor.is_a?(Class)
 
-        fault = BY_EXCEPTION[ancestor.name]
+        fault = exceptions[ancestor.name]
 
         return fault if fault
       end

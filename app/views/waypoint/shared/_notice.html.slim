@@ -1,0 +1,6 @@
+/ An inline notice. Locals: type (:warning | :info)
+/
+- tone = type.to_sym == :warning ? 'text-amber-300 ring-amber-400/20 bg-amber-400/5' : 'text-gray-300 ring-white/10 bg-white/5'
+
+.cell-auto.rounded.px-3.py-2.text-xs.ring-1 class=tone
+  = content

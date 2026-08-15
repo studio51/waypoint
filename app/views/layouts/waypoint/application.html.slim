@@ -1,0 +1,25 @@
+doctype html
+html lang="en"
+  head
+    title = [ @title, "Waypoint" ].compact.join(" · ")
+    meta name="viewport" content="width=device-width, initial-scale=1"
+    = csrf_meta_tags
+    = csp_meta_tag
+    = yield(:head)
+
+  body class="bg-[#0b0d10] text-gray-200 min-h-screen"
+    header class="border-b border-white/5"
+      .container.mx-auto.px-6.py-4.row.items-center.justify-between.gap-4
+        .row.items-baseline.gap-3
+          = link_to("Waypoint", root_path, class: "text-sm font-medium text-white")
+          span class="text-[11px] text-gray-600" = t("waypoint.tagline")
+
+        - if (back = Waypoint.back_link_path)
+          = link_to(Waypoint.config.back_link_label, back, class: "text-xs text-gray-600 hover:text-gray-400")
+
+    main.container.mx-auto.px-6.py-8
+      = yield
+
+    footer class="container mx-auto px-6 py-8 border-t border-white/5 mt-8"
+      span class="text-[11px] text-gray-600"
+        | Waypoint v#{ Waypoint::VERSION }

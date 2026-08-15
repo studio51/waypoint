@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-class Waypoint
+module Waypoint
 
   # One thing that went wrong inside a sync run, and whose problem it is.
   #
@@ -13,7 +13,9 @@ class Waypoint
   # {ApplicationService::ERROR_MESSAGES} already uses, which is what every network
   # service already reports through. See {Waypoint::Classifier}.
   #
-  class Fault < ApplicationRecord
+  class Fault < ActiveRecord::Base
+
+    self.table_name = "waypoint_faults"
 
     # --- The taxonomy ---
 
@@ -62,7 +64,7 @@ class Waypoint
 
     # Associations
     #
-    belongs_to :waypoint, counter_cache: false
+    belongs_to :run, class_name: "Waypoint::Run", foreign_key: :waypoint_id, inverse_of: :faults, counter_cache: false
     belongs_to :faultable, polymorphic: true, optional: true
 
     # Scopes
@@ -98,12 +100,12 @@ class Waypoint
     #
     # @return [String]
     #
-    def description = I18n.t("waypoints.faults.#{ fault }")
+    def description = I18n.t("waypoint.faults.#{ fault }")
 
     # What the member (or we) would have to do about it.
     #
     # @return [String]
     #
-    def remedy = I18n.t("waypoints.remedies.#{ fault }")
+    def remedy = I18n.t("waypoint.remedies.#{ fault }")
   end
 end

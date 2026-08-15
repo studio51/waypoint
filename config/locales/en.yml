@@ -1,0 +1,143 @@
+en:
+  waypoint:
+    # The one-line summary of a sync run, as read on the audit dashboard.
+    #
+    # `found` is what the store offered us; `expected` is the units of work that
+    # came to — a fan-out can be more than one task per thing found (an Xbox
+    # achievement means both a metadata task and an unlock task), so the two are
+    # deliberately different numbers and both are worth seeing.
+    narrative: "%{operation}: found %{found}, %{expected} tasks, %{synced} done, %{failed} failed"
+
+    statuses:
+      running: Running
+      ok: Synced
+      partial: Partly synced
+      failed: Failed
+      stalled: Never finished
+
+    # Who has to act. The whole point of classifying a failure.
+    parties:
+      member: The member
+      network: The network
+      us: Us
+
+    party_descriptions:
+      member: Something only the member can fix — a reconnect, or a privacy setting.
+      network: The store's problem, not ours. Usually worth another go later.
+      us: Ours to fix.
+
+    faults:
+      credentials_expired: Credentials expired
+      privacy_blocked: Blocked by privacy settings
+      account_unreachable: Account unreachable
+      network_unavailable: Network unavailable
+      network_rate_limited: Rate limited
+      network_rejected: Request rejected
+      network_empty: Returned nothing
+      our_credentials_rejected: Our credentials rejected
+      our_bug: Bug in our code
+      our_data_missing: Missing data on our side
+      our_permissions: Our bots lack access
+
+    remedies:
+      credentials_expired: The member needs to reconnect the account — the token we hold is no longer valid.
+      privacy_blocked: The member has this set to private. Nothing to retry until they change it.
+      account_unreachable: The account was renamed or deleted upstream, so there is nothing left to sync.
+      network_unavailable: The store was down or timed out. Retrying later should clear it.
+      network_rate_limited: We asked too often. Back off and come back.
+      network_rejected: The store refused the request — usually a payload we built wrong.
+      network_empty: The store answered, but with no data where we expected some.
+      our_credentials_rejected: Our own app or bot credentials were rejected — check the integration, not the member.
+      our_bug: An exception escaped our code. This one is on us.
+      our_data_missing: A record we needed locally wasn't there — usually an unlinked title or concept.
+      our_permissions: Every bot we tried was denied. The member is friends- or family-gated; the pool needs one who can see them.
+
+    tagline: What every sync actually did.
+
+    pagination:
+      previous: Previous
+      next: Next
+      position: "Page %{page} of %{pages}"
+
+    runs:
+      index:
+        title: Sync Audit
+        description_html: What every sync actually did — what the store offered, what landed, and <strong>whose problem</strong> the rest is.
+
+        windows:
+          1h: Last hour
+          24h: Last 24 hours
+          7d: Last 7 days
+          30d: Last 30 days
+
+        all_networks: All networks
+        all_operations: All steps
+        all_statuses: Any outcome
+        since: "since %{time}"
+
+        stats:
+          runs: Runs
+          runs_hint: sync steps in this window
+          completeness: Landed
+          completeness_hint: of the work accepted
+          troubled: Not clean
+          troubled_hint: partly synced, failed or abandoned
+          incomplete: Lost work
+          incomplete_hint: accepted, never reported back
+          no_data: —
+
+        faults:
+          title: What went wrong
+          none: Nothing failed in this window.
+
+        attachments:
+          title: Images owed
+          none: Every image we asked for is where it should be.
+          pending: Waiting on a first attempt
+          by_source: Asked for by
+          abandoned: "%{count} given up on after repeated failures."
+
+        runs:
+          title: Runs
+          none: Nothing ran in this window.
+
+      run:
+        platform: Platform
+        running: running
+        faults:
+          one: 1 fault
+          other: "%{count} faults"
+
+      show:
+        stats:
+          status: Outcome
+          found: Found
+          found_hint: offered by the store
+          tasks: Tasks
+          tasks_hint: units of work accepted
+          synced: Done
+          synced_hint: reported back as landed
+          failed: Failed
+          failed_hint: reported back as broken
+
+        status_hints:
+          running: still open; items may be reporting in
+          ok: everything accepted landed
+          partial: some landed, some did not
+          failed: nothing landed
+          stalled: never finished — settled by the reaper
+
+        meta:
+          started: Started
+          finished: Finished
+          took: Took
+          service: Service
+          subject: For
+          job: Sidekiq job
+
+        lost_work_html: "<strong>%{count}</strong> tasks were accepted and never reported back — they neither succeeded nor failed. That is work that vanished, not work that broke."
+
+        faults:
+          title: Faults
+          none: Nothing went wrong in this run.
+          retryable: worth retrying

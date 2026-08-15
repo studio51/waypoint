@@ -1,0 +1,17 @@
+/ A page or section heading.
+/
+/ Locals: type (:main | :section), title, description (optional), counter (optional)
+/
+- description = local_assigns[:description]
+- counter     = local_assigns[:counter]
+
+- if type == :main
+  .column.gap-1.mb-6
+    h1.text-xl.font-light.text-white = title
+    - if description.present?
+      .text-xs.text-gray-500 = description
+- else
+  .row.items-center.gap-2.mb-3
+    h2.text-sm.font-medium.text-gray-300 = title
+    - if counter
+      span class="text-[11px] text-gray-600" = number_with_delimiter(counter)

@@ -1,0 +1,24 @@
+/ Offset pagination, dependency-free.
+/
+/ Deliberately not a gem: an engine that drags a pagination library into every
+/ host to render "Previous 3 / 12 Next" has made the host's dependency decision
+/ for it.
+/
+/ Locals: page, pages, filters
+/
+- return if pages <= 1
+
+nav.row.items-center.justify-between.gap-3.mt-4
+  - if page > 1
+    = link_to(t('waypoint.pagination.previous'), runs_path(filters.merge(page: page - 1)),
+              class: 'px-3 py-1 text-xs rounded ring-1 ring-white/10 text-gray-400 hover:text-gray-200')
+  - else
+    span class="px-3 py-1 text-xs text-gray-700" = t('waypoint.pagination.previous')
+
+  span class="text-[11px] text-gray-600" = t('waypoint.pagination.position', page: page, pages: pages)
+
+  - if page < pages
+    = link_to(t('waypoint.pagination.next'), runs_path(filters.merge(page: page + 1)),
+              class: 'px-3 py-1 text-xs rounded ring-1 ring-white/10 text-gray-400 hover:text-gray-200')
+  - else
+    span class="px-3 py-1 text-xs text-gray-700" = t('waypoint.pagination.next')

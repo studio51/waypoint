@@ -1,0 +1,125 @@
+/ One run in full: what it did, and every individual thing that went wrong in it.
+/
+.column.gap-y-8
+
+  = render('waypoint/shared/heading', type: :main, title: @title, description: @run.narrative)
+
+  .grid.grid-cols-2.gap-3 class='lg:grid-cols-5'
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.status'),
+      value: t("waypoint.statuses.#{ @run.status }"),
+      hint: t(".status_hints.#{ @run.status }"),
+      tone: waypoint_status_tone(@run.status))
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.found'),
+      value: number_with_delimiter(@run.found),
+      hint: t('.stats.found_hint'))
+
+    / `found` counts what the store offered; `expected` counts units of work,
+    / which a fan-out can multiply. Both are shown because the difference is
+    / meaningful rather than a discrepancy.
+    /
+    = render('waypoint/runs/tile',
+      label: t('.stats.tasks'),
+      value: number_with_delimiter(@run.expected),
+      hint: t('.stats.tasks_hint'))
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.synced'),
+      value: number_with_delimiter(@run.synced),
+      hint: t('.stats.synced_hint'),
+      tone: (@run.synced >= @run.expected ? :good : :warn))
+
+    = render('waypoint/runs/tile',
+      label: t('.stats.failed'),
+      value: number_with_delimiter(@run.failed),
+      hint: t('.stats.failed_hint'),
+      tone: (@run.failed.zero? ? :good : :bad))
+
+  .card.p-4.column.gap-y-2
+    .row.items-baseline.gap-x-6.flex-wrap
+
+      .column class='gap-y-0.5'
+        p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.started')
+        p.text-sm= l(@run.started_at, format: :long)
+
+      - if @run.finished_at
+        .column class='gap-y-0.5'
+          p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.finished')
+          p.text-sm= l(@run.finished_at, format: :long)
+
+      - if @run.duration_ms
+        .column class='gap-y-0.5'
+          p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.took')
+          p.text-sm= distance_of_time_in_words(0, @run.duration_ms / 1000.0)
+
+      - if @run.service.present?
+        .column class='gap-y-0.5'
+          p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.service')
+          p.text-sm.font-mono.text-xs= @run.service
+
+      - if @run.subject
+        .column class='gap-y-0.5'
+          p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.subject')
+          p.text-sm
+            = "#{ @run.subject_type.demodulize } · #{ @run.subject.try(:username) || @run.subject.try(:name) || @run.subject_id }"
+
+      - if @run.jid.present?
+        .column class='gap-y-0.5'
+          p.text-xs.text-gray-400.uppercase.tracking-wide= t('.meta.job')
+          p.text-sm.font-mono.text-xs= @run.jid
+
+  / A settled run whose outcomes don't add up to the work it accepted. Work was
+  / taken on and then vanished — the failure mode that used to leave no trace.
+  /
+  - if @run.expected.positive? && (@run.synced + @run.failed) < @run.expected
+    = render(layout: 'waypoint/shared/notice', locals: { type: :warning }) do
+      == t('.lost_work_html', count: @run.expected - @run.synced - @run.failed)
+
+  .column.gap-y-4
+
+    = render('waypoint/shared/heading', type: :section, title: t('.faults.title'), counter: @faults.size)
+
+    - if @faults.empty?
+      .card.p-6.text-center
+        p.text-sm.text-gray-400= t('.faults.none')
+
+    - else
+      .column.gap-y-1
+
+        - @faults.each do |fault|
+          .card.p-3.column.gap-y-2
+
+            .row.items-center.gap-x-3.flex-wrap
+              .cell-auto
+                span class="inline-block w-2 h-2 rounded-full bg-#{ waypoint_party_color(fault.party) }-500"
+
+              .cell-auto
+                p.text-sm.font-medium= fault.description
+
+              .cell-auto
+                p.text-xs.text-gray-500= t("waypoint.parties.#{ fault.party }")
+
+              - if fault.retryable?
+                .cell-auto
+                  p.text-xs.text-blue-400= t('.faults.retryable')
+
+              .cell
+
+              - if fault.code
+                .cell-auto
+                  p.text-xs.font-mono.text-gray-500= fault.code
+
+              .cell-auto
+                p.text-xs.text-gray-500= l(fault.created_at, format: :short)
+
+            - if fault.label.present?
+              p.text-sm
+                = fault.label
+
+            - if fault.message.present?
+              p.text-xs.text-gray-400.font-mono.break-all= fault.message
+
+            p.text-xs.text-gray-500= fault.remedy
