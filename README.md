@@ -28,7 +28,7 @@ settled as `stalled` rather than left `running` forever.
 
 ## Navigation
 
-This repository adheres to the [Studio51 Solutions Common Standard v1](https://github.com/studio51/standards/blob/main/standards/common/v1/STANDARD.md), with each section documented properly in its own file.
+This repository adheres to the [Studio51 Solutions Common Standard v2](https://github.com/studio51/standards/blob/main/standards/common/v2/STANDARD.md), with each section documented properly in its own file.
 
 - [Architecture](docs/ARCHITECTURE.md) — the problem, and the fault taxonomy that answers "whose problem is it?"
 - [Install & setup](docs/INSTALL.md)
